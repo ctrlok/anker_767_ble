@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anker PowerHouse 767 Control</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #1a1a2e;
+            color: #eee;
+        }
+        h1 { color: #4ecdc4; margin-bottom: 10px; }
+        .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        .status.connected { background: #27ae60; }
+        .status.disconnected { background: #e74c3c; }
+        .status.scanning, .status.connecting { background: #f39c12; }
+
+        .card {
+            background: #16213e;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .card h2 {
+            margin-top: 0;
+            color: #4ecdc4;
+            font-size: 18px;
+            border-bottom: 1px solid #333;
+            padding-bottom: 10px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        .stat {
+            background: #1a1a2e;
+            padding: 15px;
+            border-radius: 6px;
+        }
+        .stat-label { color: #888; font-size: 12px; }
+        .stat-value { font-size: 24px; font-weight: bold; color: #4ecdc4; }
+        .stat-unit { color: #888; font-size: 14px; }
+
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+        .control {
+            background: #1a1a2e;
+            padding: 15px;
+            border-radius: 6px;
+        }
+        .control label {
+            display: block;
+            margin-bottom: 8px;
+            color: #aaa;
+            font-size: 14px;
+        }
+        .control input {
+            width: 80px;
+            padding: 8px;
+            border: 1px solid #333;
+            border-radius: 4px;
+            background: #16213e;
+            color: #eee;
+            margin-right: 10px;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+        button.primary {
+            background: #4ecdc4;
+            color: #1a1a2e;
+        }
+        button.primary:hover { background: #3dbdb5; }
+        button.on { background: #27ae60; color: white; }
+        button.on:hover { background: #219a52; }
+        button.off { background: #e74c3c; color: white; }
+        button.off:hover { background: #c0392b; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .toggle-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .outputs {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+        }
+        .output {
+            background: #1a1a2e;
+            padding: 12px;
+            border-radius: 6px;
+            text-align: center;
+        }
+        .output-name { font-size: 12px; color: #888; }
+        .output-watts { font-size: 18px; font-weight: bold; }
+        .output-status {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+        .output-status.on { background: #27ae60; }
+        .output-status.off { background: #555; }
+
+        .error { color: #e74c3c; margin-top: 10px; }
+        .success { color: #27ae60; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Anker PowerHouse 767</h1>
+    <span id="status" class="status disconnected">Disconnected</span>
+
+    <div class="card">
+        <h2>Battery Status</h2>
+        <div class="grid">
+            <div class="stat">
+                <div class="stat-label">Total Battery</div>
+                <div><span id="battery" class="stat-value">--</span><span class="stat-unit">%</span></div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Internal Battery</div>
+                <div><span id="internal-battery" class="stat-value">--</span><span class="stat-unit">%</span></div>
+                <div class="stat-label"><span id="internal-temp">--</span>°C</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">External Battery</div>
+                <div><span id="external-battery" class="stat-value">--</span><span class="stat-unit">%</span></div>
+                <div class="stat-label"><span id="external-temp">--</span>°C</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Time Remaining</div>
+                <div><span id="time-remaining" class="stat-value">--</span><span class="stat-unit">h</span></div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Total Output</div>
+                <div><span id="output" class="stat-value">--</span><span class="stat-unit">W</span></div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Total Input</div>
+                <div><span id="input" class="stat-value">--</span><span class="stat-unit">W</span></div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">AC Input</div>
+                <div><span id="ac-input" class="stat-value">--</span><span class="stat-unit">W</span></div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Solar Input</div>
+                <div><span id="solar" class="stat-value">--</span><span class="stat-unit">W</span></div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">State</div>
+                <div id="battery-state" class="stat-value" style="font-size: 16px;">--</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Outputs</h2>
+        <div class="outputs" id="outputs"></div>
+    </div>
+
+    <div class="card">
+        <h2>Controls</h2>
+        <div class="controls">
+            <div class="control">
+                <label>AC Output</label>
+                <div class="toggle-group">
+                    <button class="on" onclick="setAcOutput(true)">ON</button>
+                    <button class="off" onclick="setAcOutput(false)">OFF</button>
+                </div>
+            </div>
+            <div class="control">
+                <label>12V Output</label>
+                <div class="toggle-group">
+                    <button class="on" onclick="set12VOutput(true)">ON</button>
+                    <button class="off" onclick="set12VOutput(false)">OFF</button>
+                </div>
+            </div>
+            <div class="control">
+                <label>Power Save</label>
+                <div class="toggle-group">
+                    <button class="on" onclick="setPowerSave(true)">ON</button>
+                    <button class="off" onclick="setPowerSave(false)">OFF</button>
+                </div>
+            </div>
+            <div class="control">
+                <label>Screen Brightness (0-3)</label>
+                <input type="number" id="brightness" min="0" max="3" value="2">
+                <button class="primary" onclick="setBrightness()">Set</button>
+            </div>
+            <div class="control">
+                <label>LED Level (0-4, 4=SOS)</label>
+                <input type="number" id="led" min="0" max="4" value="0">
+                <button class="primary" onclick="setLed()">Set</button>
+            </div>
+            <div class="control">
+                <label>Recharge Power (200-1440W)</label>
+                <input type="number" id="recharge" min="200" max="1440" value="600">
+                <button class="primary" onclick="setRechargePower()">Set</button>
+            </div>
+            <div class="control">
+                <label>Screen Timeout (seconds)</label>
+                <input type="number" id="screen-timeout" min="0" max="65535" value="30">
+                <button class="primary" onclick="setScreenTimeout()">Set</button>
+            </div>
+            <div class="control">
+                <label>AC Timer (seconds, 0=off)</label>
+                <input type="number" id="ac-timer" min="0" max="65535" value="0">
+                <button class="primary" onclick="setAcTimer()">Set</button>
+            </div>
+            <div class="control">
+                <label>12V Timer (seconds, 0=off)</label>
+                <input type="number" id="12v-timer" min="0" max="65535" value="0">
+                <button class="primary" onclick="set12VTimer()">Set</button>
+            </div>
+        </div>
+        <div id="message"></div>
+    </div>
+
+    <script>
+        const API_BASE = '/api';
+
+        async function fetchStatus() {
+            try {
+                const res = await fetch(`${API_BASE}/status`);
+                const data = await res.json();
+                const el = document.getElementById('status');
+                el.textContent = data.state.charAt(0).toUpperCase() + data.state.slice(1);
+                el.className = `status ${data.state}`;
+            } catch (e) {
+                console.error('Failed to fetch status:', e);
+            }
+        }
+
+        async function fetchTelemetry() {
+            try {
+                const res = await fetch(`${API_BASE}/telemetry`);
+                if (!res.ok) return;
+                const data = await res.json();
+
+                document.getElementById('battery').textContent = data.total_battery_percentage;
+                document.getElementById('internal-battery').textContent = data.internal_battery.percentage;
+                document.getElementById('internal-temp').textContent = data.internal_battery.temperature;
+                document.getElementById('external-battery').textContent = data.external_battery.percentage;
+                document.getElementById('external-temp').textContent = data.external_battery.temperature;
+                document.getElementById('time-remaining').textContent = data.battery_remaining_hours.toFixed(1);
+                document.getElementById('output').textContent = data.total_output_watts;
+                document.getElementById('input').textContent = data.total_input_watts;
+                document.getElementById('ac-input').textContent = data.ac_input_watts;
+                document.getElementById('solar').textContent = data.solar_input_watts;
+                document.getElementById('battery-state').textContent = data.battery_state;
+
+                updateOutputs(data);
+            } catch (e) {
+                console.error('Failed to fetch telemetry:', e);
+            }
+        }
+
+        function updateOutputs(data) {
+            const container = document.getElementById('outputs');
+            let html = '';
+
+            html += outputCard('AC Outlet', data.ac_outlet);
+            data.twelve_volt.forEach((o, i) => html += outputCard(`12V ${i+1}`, o));
+            data.usb_c.forEach((o, i) => html += outputCard(`USB-C ${i+1}`, o));
+            data.usb_a.forEach((o, i) => html += outputCard(`USB-A ${i+1}`, o));
+
+            container.innerHTML = html;
+        }
+
+        function outputCard(name, output) {
+            const statusClass = output.is_on ? 'on' : 'off';
+            return `
+                <div class="output">
+                    <div class="output-name">${name}</div>
+                    <div class="output-watts">
+                        <span class="output-status ${statusClass}"></span>
+                        ${output.watts}W
+                    </div>
+                </div>
+            `;
+        }
+
+        async function sendCommand(endpoint, body) {
+            const msgEl = document.getElementById('message');
+            try {
+                const res = await fetch(`${API_BASE}${endpoint}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    msgEl.innerHTML = '<span class="success">Command sent successfully</span>';
+                } else {
+                    msgEl.innerHTML = `<span class="error">Error: ${data.error}</span>`;
+                }
+            } catch (e) {
+                msgEl.innerHTML = `<span class="error">Failed to send command: ${e}</span>`;
+            }
+            setTimeout(() => msgEl.innerHTML = '', 3000);
+        }
+
+        function setAcOutput(isOn) { sendCommand('/ac-output', { is_on: isOn }); }
+        function set12VOutput(isOn) { sendCommand('/twelve-volt-output', { is_on: isOn }); }
+        function setPowerSave(isOn) { sendCommand('/power-save', { is_on: isOn }); }
+
+        function setBrightness() {
+            const level = parseInt(document.getElementById('brightness').value);
+            sendCommand('/screen-brightness', { level });
+        }
+
+        function setLed() {
+            const level = parseInt(document.getElementById('led').value);
+            sendCommand('/led', { level });
+        }
+
+        function setRechargePower() {
+            const watts = parseInt(document.getElementById('recharge').value);
+            sendCommand('/recharge-power', { watts });
+        }
+
+        function setScreenTimeout() {
+            const seconds = parseInt(document.getElementById('screen-timeout').value);
+            sendCommand('/screen-timeout', { seconds });
+        }
+
+        function setAcTimer() {
+            const seconds = parseInt(document.getElementById('ac-timer').value);
+            sendCommand('/ac-timer', { seconds });
+        }
+
+        function set12VTimer() {
+            const seconds = parseInt(document.getElementById('12v-timer').value);
+            sendCommand('/twelve-volt-timer', { seconds });
+        }
+
+        // Refresh data periodically
+        fetchStatus();
+        fetchTelemetry();
+        setInterval(fetchStatus, 5000);
+        setInterval(fetchTelemetry, 2000);
+    </script>
+</body>
+</html>

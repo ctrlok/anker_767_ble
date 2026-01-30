@@ -1,0 +1,20 @@
+[package]
+name = "anker_767_ble_webserver"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+axum = "0.8"
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+btleplug = "0.11"
+uuid = "1"
+futures = "0.3"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+utoipa = { version = "5", features = ["axum_extras"] }
+utoipa-swagger-ui = { version = "9", features = ["axum", "vendored"] }
+prometheus = "0.13"
+tower-http = { version = "0.6", features = ["fs", "cors"] }
+thiserror = "2"
