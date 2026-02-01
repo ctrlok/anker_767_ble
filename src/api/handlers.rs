@@ -4,7 +4,7 @@ use crate::ble::command::{
     AcOutputCommand, AcTimerCommand, LedCommand, PowerSaveCommand, RechargePowerCommand,
     ScreenBrightnessCommand, ScreenTimeoutCommand, TwelveVoltOutputCommand, TwelveVoltTimerCommand,
 };
-use crate::ble::{send_command, AnkerCommand, ConnectionState, DeviceState, Telemetry};
+use crate::ble::{send_command, AnkerCommand, ConnectionState, DeviceState, SetState, Telemetry};
 use crate::metrics;
 use axum::extract::State;
 use axum::http::StatusCode;
@@ -119,6 +119,20 @@ pub async fn get_telemetry(
         })
 }
 
+/// Get current device state (last set values)
+#[utoipa::path(
+    get,
+    path = "/api/device-state",
+    responses(
+        (status = 200, description = "Current device state", body = SetState)
+    ),
+    tag = "telemetry"
+)]
+pub async fn get_device_state(State(state): State<AppState>) -> Json<SetState> {
+    let state = state.read().await;
+    Json(state.set_state.clone())
+}
+
 /// Toggle power save mode
 #[utoipa::path(
     post,
@@ -131,10 +145,13 @@ pub async fn get_telemetry(
     tag = "commands"
 )]
 pub async fn set_power_save(
+    State(state): State<AppState>,
     Json(req): Json<BoolRequest>,
 ) -> Result<Json<ApiSuccess>, (StatusCode, Json<ApiError>)> {
     let cmd = AnkerCommand::PowerSave(PowerSaveCommand::new(req.is_on));
-    send_and_track(cmd).await
+    let result = send_and_track(cmd).await?;
+    state.write().await.set_state.power_save = Some(req.is_on);
+    Ok(result)
 }
 
 /// Toggle AC output
@@ -149,10 +166,13 @@ pub async fn set_power_save(
     tag = "commands"
 )]
 pub async fn set_ac_output(
+    State(state): State<AppState>,
     Json(req): Json<BoolRequest>,
 ) -> Result<Json<ApiSuccess>, (StatusCode, Json<ApiError>)> {
     let cmd = AnkerCommand::AcOutput(AcOutputCommand::new(req.is_on));
-    send_and_track(cmd).await
+    let result = send_and_track(cmd).await?;
+    state.write().await.set_state.ac_output = Some(req.is_on);
+    Ok(result)
 }
 
 /// Toggle 12V output
@@ -167,10 +187,13 @@ pub async fn set_ac_output(
     tag = "commands"
 )]
 pub async fn set_twelve_volt_output(
+    State(state): State<AppState>,
     Json(req): Json<BoolRequest>,
 ) -> Result<Json<ApiSuccess>, (StatusCode, Json<ApiError>)> {
     let cmd = AnkerCommand::TwelveVoltOutput(TwelveVoltOutputCommand::new(req.is_on));
-    send_and_track(cmd).await
+    let result = send_and_track(cmd).await?;
+    state.write().await.set_state.twelve_volt_output = Some(req.is_on);
+    Ok(result)
 }
 
 /// Set screen brightness
@@ -186,6 +209,7 @@ pub async fn set_twelve_volt_output(
     tag = "commands"
 )]
 pub async fn set_screen_brightness(
+    State(state): State<AppState>,
     Json(req): Json<BrightnessRequest>,
 ) -> Result<Json<ApiSuccess>, (StatusCode, Json<ApiError>)> {
     let inner = ScreenBrightnessCommand::new(req.level).map_err(|e| {
@@ -197,7 +221,9 @@ pub async fn set_screen_brightness(
         )
     })?;
     let cmd = AnkerCommand::ScreenBrightness(inner);
-    send_and_track(cmd).await
+    let result = send_and_track(cmd).await?;
+    state.write().await.set_state.screen_brightness = Some(req.level);
+    Ok(result)
 }
 
 /// Set LED level
@@ -213,6 +239,7 @@ pub async fn set_screen_brightness(
     tag = "commands"
 )]
 pub async fn set_led(
+    State(state): State<AppState>,
     Json(req): Json<LedRequest>,
 ) -> Result<Json<ApiSuccess>, (StatusCode, Json<ApiError>)> {
     let inner = LedCommand::new(req.level).map_err(|e| {
@@ -224,7 +251,9 @@ pub async fn set_led(
         )
     })?;
     let cmd = AnkerCommand::Led(inner);
-    send_and_track(cmd).await
+    let result = send_and_track(cmd).await?;
+    state.write().await.set_state.led_level = Some(req.level);
+    Ok(result)
 }
 
 /// Set recharge power
@@ -240,6 +269,7 @@ pub async fn set_led(
     tag = "commands"
 )]
 pub async fn set_recharge_power(
+    State(state): State<AppState>,
     Json(req): Json<WattsRequest>,
 ) -> Result<Json<ApiSuccess>, (StatusCode, Json<ApiError>)> {
     let inner = RechargePowerCommand::new(req.watts).map_err(|e| {
@@ -251,7 +281,9 @@ pub async fn set_recharge_power(
         )
     })?;
     let cmd = AnkerCommand::RechargePower(inner);
-    send_and_track(cmd).await
+    let result = send_and_track(cmd).await?;
+    state.write().await.set_state.recharge_power = Some(req.watts);
+    Ok(result)
 }
 
 /// Set screen timeout
@@ -266,10 +298,13 @@ pub async fn set_recharge_power(
     tag = "commands"
 )]
 pub async fn set_screen_timeout(
+    State(state): State<AppState>,
     Json(req): Json<SecondsRequest>,
 ) -> Result<Json<ApiSuccess>, (StatusCode, Json<ApiError>)> {
     let cmd = AnkerCommand::ScreenTimeout(ScreenTimeoutCommand::new(req.seconds));
-    send_and_track(cmd).await
+    let result = send_and_track(cmd).await?;
+    state.write().await.set_state.screen_timeout = Some(req.seconds);
+    Ok(result)
 }
 
 /// Set AC timer
@@ -284,10 +319,13 @@ pub async fn set_screen_timeout(
     tag = "commands"
 )]
 pub async fn set_ac_timer(
+    State(state): State<AppState>,
     Json(req): Json<SecondsRequest>,
 ) -> Result<Json<ApiSuccess>, (StatusCode, Json<ApiError>)> {
     let cmd = AnkerCommand::AcTimer(AcTimerCommand::new(req.seconds));
-    send_and_track(cmd).await
+    let result = send_and_track(cmd).await?;
+    state.write().await.set_state.ac_timer = Some(req.seconds);
+    Ok(result)
 }
 
 /// Set 12V timer
@@ -302,10 +340,13 @@ pub async fn set_ac_timer(
     tag = "commands"
 )]
 pub async fn set_twelve_volt_timer(
+    State(state): State<AppState>,
     Json(req): Json<SecondsRequest>,
 ) -> Result<Json<ApiSuccess>, (StatusCode, Json<ApiError>)> {
     let cmd = AnkerCommand::TwelveVoltTimer(TwelveVoltTimerCommand::new(req.seconds));
-    send_and_track(cmd).await
+    let result = send_and_track(cmd).await?;
+    state.write().await.set_state.twelve_volt_timer = Some(req.seconds);
+    Ok(result)
 }
 
 /// Prometheus metrics endpoint

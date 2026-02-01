@@ -19,6 +19,7 @@ use utoipa_swagger_ui::SwaggerUi;
     paths(
         api::get_status,
         api::get_telemetry,
+        api::get_device_state,
         api::set_power_save,
         api::set_ac_output,
         api::set_twelve_volt_output,
@@ -107,6 +108,7 @@ async fn main() {
     let api_router = Router::new()
         .route("/status", get(api::get_status))
         .route("/telemetry", get(api::get_telemetry))
+        .route("/device-state", get(api::get_device_state))
         .route("/power-save", post(api::set_power_save))
         .route("/ac-output", post(api::set_ac_output))
         .route("/twelve-volt-output", post(api::set_twelve_volt_output))

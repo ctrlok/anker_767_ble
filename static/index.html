@@ -4,246 +4,409 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Anker PowerHouse 767 Control</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'dark-bg': '#1a1a2e',
+                        'dark-card': '#16213e',
+                        'teal': '#4ecdc4',
+                        'teal-hover': '#3dbdb5',
+                    }
+                }
+            }
+        }
+    </script>
     <style>
-        * { box-sizing: border-box; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            background: #1a1a2e;
-            color: #eee;
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 4px 2px rgba(34, 197, 94, 0.6); }
+            50% { box-shadow: 0 0 8px 4px rgba(34, 197, 94, 0.8); }
         }
-        h1 { color: #4ecdc4; margin-bottom: 10px; }
-        .status {
-            display: inline-block;
-            padding: 4px 12px;
-            border-radius: 12px;
-            font-size: 14px;
-            margin-bottom: 20px;
+        @keyframes sos-pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
         }
-        .status.connected { background: #27ae60; }
-        .status.disconnected { background: #e74c3c; }
-        .status.scanning, .status.connecting { background: #f39c12; }
+        .glow-dot { animation: pulse-glow 1.5s ease-in-out infinite; }
+        .sos-active { animation: sos-pulse 0.5s ease-in-out infinite; }
 
-        .card {
-            background: #16213e;
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 20px;
-        }
-        .card h2 {
-            margin-top: 0;
-            color: #4ecdc4;
-            font-size: 18px;
-            border-bottom: 1px solid #333;
-            padding-bottom: 10px;
-        }
-
-        .grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-        }
-        .stat {
-            background: #1a1a2e;
-            padding: 15px;
-            border-radius: 6px;
-        }
-        .stat-label { color: #888; font-size: 12px; }
-        .stat-value { font-size: 24px; font-weight: bold; color: #4ecdc4; }
-        .stat-unit { color: #888; font-size: 14px; }
-
-        .controls {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 15px;
-        }
-        .control {
-            background: #1a1a2e;
-            padding: 15px;
-            border-radius: 6px;
-        }
-        .control label {
-            display: block;
-            margin-bottom: 8px;
-            color: #aaa;
-            font-size: 14px;
-        }
-        .control input {
-            width: 80px;
-            padding: 8px;
-            border: 1px solid #333;
-            border-radius: 4px;
-            background: #16213e;
-            color: #eee;
-            margin-right: 10px;
-        }
-
-        button {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 4px;
+        /* Toggle switch styles */
+        .toggle-switch {
+            width: 60px;
+            height: 30px;
+            border-radius: 15px;
+            position: relative;
             cursor: pointer;
-            font-size: 14px;
-            transition: background 0.2s;
+            transition: background-color 0.3s;
         }
-        button.primary {
-            background: #4ecdc4;
-            color: #1a1a2e;
-        }
-        button.primary:hover { background: #3dbdb5; }
-        button.on { background: #27ae60; color: white; }
-        button.on:hover { background: #219a52; }
-        button.off { background: #e74c3c; color: white; }
-        button.off:hover { background: #c0392b; }
-        button:disabled { opacity: 0.5; cursor: not-allowed; }
-
-        .toggle-group {
-            display: flex;
-            gap: 10px;
-        }
-
-        .outputs {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 10px;
-        }
-        .output {
-            background: #1a1a2e;
-            padding: 12px;
-            border-radius: 6px;
-            text-align: center;
-        }
-        .output-name { font-size: 12px; color: #888; }
-        .output-watts { font-size: 18px; font-weight: bold; }
-        .output-status {
-            display: inline-block;
-            width: 8px;
-            height: 8px;
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            width: 24px;
+            height: 24px;
             border-radius: 50%;
-            margin-right: 5px;
+            background: white;
+            top: 3px;
+            left: 3px;
+            transition: transform 0.3s;
         }
-        .output-status.on { background: #27ae60; }
-        .output-status.off { background: #555; }
+        .toggle-switch.active::after {
+            transform: translateX(30px);
+        }
+        .toggle-switch.active {
+            background-color: #22c55e;
+        }
+        .toggle-switch:not(.active) {
+            background-color: #4b5563;
+        }
 
-        .error { color: #e74c3c; margin-top: 10px; }
-        .success { color: #27ae60; margin-top: 10px; }
+        /* Slider styles */
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 8px;
+            border-radius: 4px;
+            background: #374151;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #4ecdc4;
+            cursor: pointer;
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #4ecdc4;
+            cursor: pointer;
+            border: none;
+        }
     </style>
 </head>
-<body>
-    <h1>Anker PowerHouse 767</h1>
-    <span id="status" class="status disconnected">Disconnected</span>
+<body class="bg-dark-bg text-gray-100 min-h-screen font-sans">
+    <div class="max-w-6xl mx-auto p-4 md:p-6">
+        <!-- Header -->
+        <div class="flex items-center justify-between mb-6">
+            <h1 class="text-2xl md:text-3xl font-bold text-teal">Anker PowerHouse 767</h1>
+            <span id="status" class="px-3 py-1 rounded-full text-sm font-medium bg-red-500">Disconnected</span>
+        </div>
 
-    <div class="card">
-        <h2>Battery Status</h2>
-        <div class="grid">
-            <div class="stat">
-                <div class="stat-label">Total Battery</div>
-                <div><span id="battery" class="stat-value">--</span><span class="stat-unit">%</span></div>
+        <!-- Battery Stats Card -->
+        <div class="bg-dark-card rounded-xl p-4 md:p-6 mb-6">
+            <!-- Hero Stat -->
+            <div class="text-center mb-6">
+                <div class="text-gray-400 text-sm mb-1">Total Battery</div>
+                <div class="text-4xl md:text-5xl font-bold text-teal">
+                    <span id="battery">--</span><span class="text-2xl text-gray-400">%</span>
+                </div>
             </div>
-            <div class="stat">
-                <div class="stat-label">Internal Battery</div>
-                <div><span id="internal-battery" class="stat-value">--</span><span class="stat-unit">%</span></div>
-                <div class="stat-label"><span id="internal-temp">--</span>°C</div>
+
+            <!-- Primary Row -->
+            <div class="grid grid-cols-3 gap-4 mb-6">
+                <div class="text-center">
+                    <div class="text-gray-400 text-xs mb-1">Runtime</div>
+                    <div class="text-2xl font-bold text-white">
+                        <span id="time-remaining">--</span><span class="text-sm text-gray-400">h</span>
+                    </div>
+                </div>
+                <div class="text-center">
+                    <div class="text-gray-400 text-xs mb-1">Output</div>
+                    <div class="text-2xl font-bold text-orange-400">
+                        <span id="output">--</span><span class="text-sm text-gray-400">W</span>
+                    </div>
+                </div>
+                <div class="text-center">
+                    <div class="text-gray-400 text-xs mb-1">Input</div>
+                    <div class="text-2xl font-bold text-green-400">
+                        <span id="input">--</span><span class="text-sm text-gray-400">W</span>
+                    </div>
+                </div>
             </div>
-            <div class="stat">
-                <div class="stat-label">External Battery</div>
-                <div><span id="external-battery" class="stat-value">--</span><span class="stat-unit">%</span></div>
-                <div class="stat-label"><span id="external-temp">--</span>°C</div>
-            </div>
-            <div class="stat">
-                <div class="stat-label">Time Remaining</div>
-                <div><span id="time-remaining" class="stat-value">--</span><span class="stat-unit">h</span></div>
-            </div>
-            <div class="stat">
-                <div class="stat-label">Total Output</div>
-                <div><span id="output" class="stat-value">--</span><span class="stat-unit">W</span></div>
-            </div>
-            <div class="stat">
-                <div class="stat-label">Total Input</div>
-                <div><span id="input" class="stat-value">--</span><span class="stat-unit">W</span></div>
-            </div>
-            <div class="stat">
-                <div class="stat-label">AC Input</div>
-                <div><span id="ac-input" class="stat-value">--</span><span class="stat-unit">W</span></div>
-            </div>
-            <div class="stat">
-                <div class="stat-label">Solar Input</div>
-                <div><span id="solar" class="stat-value">--</span><span class="stat-unit">W</span></div>
-            </div>
-            <div class="stat">
-                <div class="stat-label">State</div>
-                <div id="battery-state" class="stat-value" style="font-size: 16px;">--</div>
+
+            <!-- Secondary Row -->
+            <div class="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm">
+                <div class="flex items-center gap-2">
+                    <span class="text-gray-500">Int:</span>
+                    <span id="internal-battery" class="text-white">--</span><span class="text-gray-500">%</span>
+                    <span class="text-gray-600">|</span>
+                    <span id="internal-temp" class="text-gray-400">--</span><span class="text-gray-500">C</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-gray-500">Ext:</span>
+                    <span id="external-battery" class="text-white">--</span><span class="text-gray-500">%</span>
+                    <span class="text-gray-600">|</span>
+                    <span id="external-temp" class="text-gray-400">--</span><span class="text-gray-500">C</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-gray-500">AC:</span>
+                    <span id="ac-input" class="text-green-400">--</span><span class="text-gray-500">W</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-gray-500">Solar:</span>
+                    <span id="solar" class="text-yellow-400">--</span><span class="text-gray-500">W</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-gray-500">State:</span>
+                    <span id="battery-state" class="text-teal">--</span>
+                </div>
             </div>
         </div>
-    </div>
 
-    <div class="card">
-        <h2>Outputs</h2>
-        <div class="outputs" id="outputs"></div>
-    </div>
+        <!-- Output Ports Card -->
+        <div class="bg-dark-card rounded-xl p-4 md:p-6 mb-6">
+            <h2 class="text-lg font-semibold text-teal border-b border-gray-700 pb-3 mb-4">Outputs</h2>
+            <div id="outputs" class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3"></div>
+        </div>
 
-    <div class="card">
-        <h2>Controls</h2>
-        <div class="controls">
-            <div class="control">
-                <label>AC Output</label>
-                <div class="toggle-group">
-                    <button class="on" onclick="setAcOutput(true)">ON</button>
-                    <button class="off" onclick="setAcOutput(false)">OFF</button>
+        <!-- Power Graphs -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div class="bg-dark-card rounded-xl p-4 md:p-6">
+                <h2 class="text-lg font-semibold text-green-400 mb-4">Input Power</h2>
+                <div class="h-48">
+                    <canvas id="inputChart"></canvas>
                 </div>
             </div>
-            <div class="control">
-                <label>12V Output</label>
-                <div class="toggle-group">
-                    <button class="on" onclick="set12VOutput(true)">ON</button>
-                    <button class="off" onclick="set12VOutput(false)">OFF</button>
+            <div class="bg-dark-card rounded-xl p-4 md:p-6">
+                <h2 class="text-lg font-semibold text-orange-400 mb-4">Output Power</h2>
+                <div class="h-48">
+                    <canvas id="outputChart"></canvas>
                 </div>
-            </div>
-            <div class="control">
-                <label>Power Save</label>
-                <div class="toggle-group">
-                    <button class="on" onclick="setPowerSave(true)">ON</button>
-                    <button class="off" onclick="setPowerSave(false)">OFF</button>
-                </div>
-            </div>
-            <div class="control">
-                <label>Screen Brightness (0-3)</label>
-                <input type="number" id="brightness" min="0" max="3" value="2">
-                <button class="primary" onclick="setBrightness()">Set</button>
-            </div>
-            <div class="control">
-                <label>LED Level (0-4, 4=SOS)</label>
-                <input type="number" id="led" min="0" max="4" value="0">
-                <button class="primary" onclick="setLed()">Set</button>
-            </div>
-            <div class="control">
-                <label>Recharge Power (200-1440W)</label>
-                <input type="number" id="recharge" min="200" max="1440" value="600">
-                <button class="primary" onclick="setRechargePower()">Set</button>
-            </div>
-            <div class="control">
-                <label>Screen Timeout (seconds)</label>
-                <input type="number" id="screen-timeout" min="0" max="65535" value="30">
-                <button class="primary" onclick="setScreenTimeout()">Set</button>
-            </div>
-            <div class="control">
-                <label>AC Timer (seconds, 0=off)</label>
-                <input type="number" id="ac-timer" min="0" max="65535" value="0">
-                <button class="primary" onclick="setAcTimer()">Set</button>
-            </div>
-            <div class="control">
-                <label>12V Timer (seconds, 0=off)</label>
-                <input type="number" id="12v-timer" min="0" max="65535" value="0">
-                <button class="primary" onclick="set12VTimer()">Set</button>
             </div>
         </div>
-        <div id="message"></div>
+
+        <!-- Controls Card -->
+        <div class="bg-dark-card rounded-xl p-4 md:p-6">
+            <h2 class="text-lg font-semibold text-teal border-b border-gray-700 pb-3 mb-6">Controls</h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- AC Output Toggle -->
+                <div class="bg-dark-bg rounded-lg p-4">
+                    <label class="block text-gray-400 text-sm mb-3">AC Output</label>
+                    <div class="flex items-center gap-3">
+                        <div id="ac-toggle" class="toggle-switch" onclick="toggleAcOutput()"></div>
+                        <span id="ac-toggle-label" class="text-sm text-gray-400">OFF</span>
+                    </div>
+                </div>
+
+                <!-- 12V Output Toggle -->
+                <div class="bg-dark-bg rounded-lg p-4">
+                    <label class="block text-gray-400 text-sm mb-3">12V Output</label>
+                    <div class="flex items-center gap-3">
+                        <div id="12v-toggle" class="toggle-switch" onclick="toggle12VOutput()"></div>
+                        <span id="12v-toggle-label" class="text-sm text-gray-400">OFF</span>
+                    </div>
+                </div>
+
+                <!-- Power Save Toggle -->
+                <div class="bg-dark-bg rounded-lg p-4">
+                    <label class="block text-gray-400 text-sm mb-3">Power Save</label>
+                    <div class="flex items-center gap-3">
+                        <div id="powersave-toggle" class="toggle-switch" onclick="togglePowerSave()"></div>
+                        <span id="powersave-toggle-label" class="text-sm text-gray-400">OFF</span>
+                    </div>
+                </div>
+
+                <!-- Screen Brightness Segmented -->
+                <div class="bg-dark-bg rounded-lg p-4">
+                    <label class="block text-gray-400 text-sm mb-3">Screen Brightness</label>
+                    <div class="flex rounded-lg overflow-hidden">
+                        <button onclick="setBrightness(0)" data-brightness="0" class="brightness-btn flex-1 py-2 px-3 bg-gray-700 text-sm hover:bg-gray-600 transition-colors">Off</button>
+                        <button onclick="setBrightness(1)" data-brightness="1" class="brightness-btn flex-1 py-2 px-3 bg-gray-700 text-sm hover:bg-gray-600 transition-colors border-l border-gray-600">1</button>
+                        <button onclick="setBrightness(2)" data-brightness="2" class="brightness-btn flex-1 py-2 px-3 bg-gray-700 text-sm hover:bg-gray-600 transition-colors border-l border-gray-600">2</button>
+                        <button onclick="setBrightness(3)" data-brightness="3" class="brightness-btn flex-1 py-2 px-3 bg-gray-700 text-sm hover:bg-gray-600 transition-colors border-l border-gray-600">3</button>
+                    </div>
+                </div>
+
+                <!-- LED Level Segmented -->
+                <div class="bg-dark-bg rounded-lg p-4">
+                    <label class="block text-gray-400 text-sm mb-3">LED Level</label>
+                    <div class="flex rounded-lg overflow-hidden">
+                        <button onclick="setLed(0)" data-led="0" class="led-btn flex-1 py-2 px-2 bg-gray-700 text-xs hover:bg-gray-600 transition-colors">Off</button>
+                        <button onclick="setLed(1)" data-led="1" class="led-btn flex-1 py-2 px-2 bg-gray-700 text-xs hover:bg-gray-600 transition-colors border-l border-gray-600">Low</button>
+                        <button onclick="setLed(2)" data-led="2" class="led-btn flex-1 py-2 px-2 bg-gray-700 text-xs hover:bg-gray-600 transition-colors border-l border-gray-600">Mid</button>
+                        <button onclick="setLed(3)" data-led="3" class="led-btn flex-1 py-2 px-2 bg-gray-700 text-xs hover:bg-gray-600 transition-colors border-l border-gray-600">High</button>
+                        <button onclick="setLed(4)" data-led="4" class="led-btn flex-1 py-2 px-2 bg-gray-700 text-xs hover:bg-red-600 transition-colors border-l border-gray-600" id="sos-btn">SOS</button>
+                    </div>
+                </div>
+
+                <!-- Recharge Power Slider -->
+                <div class="bg-dark-bg rounded-lg p-4">
+                    <label class="block text-gray-400 text-sm mb-3">Recharge Power</label>
+                    <div class="flex items-center gap-3">
+                        <input type="range" id="recharge" min="200" max="1440" value="600" class="flex-1" oninput="updateRechargeDisplay()">
+                        <span id="recharge-display" class="text-teal font-bold w-16 text-right">600W</span>
+                    </div>
+                    <button onclick="setRechargePower()" class="mt-3 w-full py-2 bg-teal hover:bg-teal-hover text-dark-bg font-medium rounded-lg transition-colors">Apply</button>
+                </div>
+
+                <!-- Screen Timeout -->
+                <div class="bg-dark-bg rounded-lg p-4">
+                    <label class="block text-gray-400 text-sm mb-3">Screen Timeout</label>
+                    <div class="flex items-center gap-2">
+                        <input type="number" id="screen-timeout" min="0" max="65535" value="30" class="flex-1 px-3 py-2 bg-dark-card border border-gray-700 rounded-lg text-white focus:border-teal focus:outline-none">
+                        <span class="text-gray-400 text-sm">sec</span>
+                    </div>
+                    <button onclick="setScreenTimeout()" class="mt-3 w-full py-2 bg-teal hover:bg-teal-hover text-dark-bg font-medium rounded-lg transition-colors">Set</button>
+                </div>
+            </div>
+
+            <!-- Timers Section - Full Width -->
+            <div class="mt-6 pt-6 border-t border-gray-700">
+                <h3 class="text-md font-semibold text-gray-300 mb-4">Timers</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- AC Timer -->
+                    <div class="bg-dark-bg rounded-lg p-4">
+                        <label class="block text-gray-400 text-sm mb-3">AC Timer</label>
+                        <div class="flex flex-wrap gap-2 mb-3">
+                            <button onclick="setAcTimerPreset(0)" class="ac-timer-preset px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm transition-colors">Off</button>
+                            <button onclick="setAcTimerPreset(1800)" class="ac-timer-preset px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm transition-colors">30m</button>
+                            <button onclick="setAcTimerPreset(3600)" class="ac-timer-preset px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm transition-colors">1h</button>
+                            <button onclick="setAcTimerPreset(7200)" class="ac-timer-preset px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm transition-colors">2h</button>
+                            <button onclick="setAcTimerPreset(14400)" class="ac-timer-preset px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm transition-colors">4h</button>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <input type="number" id="ac-timer" min="0" max="65535" value="0" class="flex-1 px-3 py-2 bg-dark-card border border-gray-700 rounded-lg text-white focus:border-teal focus:outline-none">
+                            <span class="text-gray-400 text-sm">sec</span>
+                            <button onclick="setAcTimer()" class="px-4 py-2 bg-teal hover:bg-teal-hover text-dark-bg font-medium rounded-lg transition-colors">Set</button>
+                        </div>
+                    </div>
+
+                    <!-- 12V Timer -->
+                    <div class="bg-dark-bg rounded-lg p-4">
+                        <label class="block text-gray-400 text-sm mb-3">12V Timer</label>
+                        <div class="flex flex-wrap gap-2 mb-3">
+                            <button onclick="set12VTimerPreset(0)" class="v12-timer-preset px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm transition-colors">Off</button>
+                            <button onclick="set12VTimerPreset(1800)" class="v12-timer-preset px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm transition-colors">30m</button>
+                            <button onclick="set12VTimerPreset(3600)" class="v12-timer-preset px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm transition-colors">1h</button>
+                            <button onclick="set12VTimerPreset(7200)" class="v12-timer-preset px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm transition-colors">2h</button>
+                            <button onclick="set12VTimerPreset(14400)" class="v12-timer-preset px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm transition-colors">4h</button>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <input type="number" id="12v-timer" min="0" max="65535" value="0" class="flex-1 px-3 py-2 bg-dark-card border border-gray-700 rounded-lg text-white focus:border-teal focus:outline-none">
+                            <span class="text-gray-400 text-sm">sec</span>
+                            <button onclick="set12VTimer()" class="px-4 py-2 bg-teal hover:bg-teal-hover text-dark-bg font-medium rounded-lg transition-colors">Set</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Message Display -->
+            <div id="message" class="mt-4 text-center"></div>
+        </div>
     </div>
 
     <script>
         const API_BASE = '/api';
+
+        // Chart instances
+        let inputChart, outputChart;
+        const MAX_DATA_POINTS = 60;
+        const chartData = {
+            input: [],
+            output: [],
+            labels: []
+        };
+
+        // Toggle states
+        const toggleStates = {
+            ac: false,
+            v12: false,
+            powerSave: false
+        };
+
+        // Current control states
+        let currentBrightness = 2;
+        let currentLed = 0;
+
+        function initCharts() {
+            const commonOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false,
+                scales: {
+                    x: {
+                        display: false
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.1)'
+                        },
+                        ticks: {
+                            color: '#9ca3af'
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                elements: {
+                    point: {
+                        radius: 0
+                    },
+                    line: {
+                        tension: 0.4
+                    }
+                }
+            };
+
+            const inputCtx = document.getElementById('inputChart').getContext('2d');
+            inputChart = new Chart(inputCtx, {
+                type: 'line',
+                data: {
+                    labels: chartData.labels,
+                    datasets: [{
+                        data: chartData.input,
+                        borderColor: '#22c55e',
+                        backgroundColor: 'rgba(34, 197, 94, 0.2)',
+                        fill: true,
+                        borderWidth: 2
+                    }]
+                },
+                options: commonOptions
+            });
+
+            const outputCtx = document.getElementById('outputChart').getContext('2d');
+            outputChart = new Chart(outputCtx, {
+                type: 'line',
+                data: {
+                    labels: chartData.labels,
+                    datasets: [{
+                        data: chartData.output,
+                        borderColor: '#f97316',
+                        backgroundColor: 'rgba(249, 115, 22, 0.2)',
+                        fill: true,
+                        borderWidth: 2
+                    }]
+                },
+                options: commonOptions
+            });
+        }
+
+        function updateCharts(inputWatts, outputWatts) {
+            const now = new Date().toLocaleTimeString();
+
+            chartData.labels.push(now);
+            chartData.input.push(inputWatts);
+            chartData.output.push(outputWatts);
+
+            if (chartData.labels.length > MAX_DATA_POINTS) {
+                chartData.labels.shift();
+                chartData.input.shift();
+                chartData.output.shift();
+            }
+
+            inputChart.update('none');
+            outputChart.update('none');
+        }
 
         async function fetchStatus() {
             try {
@@ -251,7 +414,15 @@
                 const data = await res.json();
                 const el = document.getElementById('status');
                 el.textContent = data.state.charAt(0).toUpperCase() + data.state.slice(1);
-                el.className = `status ${data.state}`;
+
+                el.className = 'px-3 py-1 rounded-full text-sm font-medium';
+                if (data.state === 'connected') {
+                    el.classList.add('bg-green-500');
+                } else if (data.state === 'disconnected') {
+                    el.classList.add('bg-red-500');
+                } else {
+                    el.classList.add('bg-yellow-500');
+                }
             } catch (e) {
                 console.error('Failed to fetch status:', e);
             }
@@ -276,6 +447,7 @@
                 document.getElementById('battery-state').textContent = data.battery_state;
 
                 updateOutputs(data);
+                updateCharts(data.total_input_watts, data.total_output_watts);
             } catch (e) {
                 console.error('Failed to fetch telemetry:', e);
             }
@@ -285,28 +457,33 @@
             const container = document.getElementById('outputs');
             let html = '';
 
-            html += outputCard('AC Outlet', data.ac_outlet);
-            data.twelve_volt.forEach((o, i) => html += outputCard(`12V ${i+1}`, o));
-            data.usb_c.forEach((o, i) => html += outputCard(`USB-C ${i+1}`, o));
-            data.usb_a.forEach((o, i) => html += outputCard(`USB-A ${i+1}`, o));
+            html += outputCard('AC', data.ac_outlet);
+            data.twelve_volt.forEach((o, i) => html += outputCard(`12V-${i+1}`, o));
+            data.usb_c.forEach((o, i) => html += outputCard(`C${i+1}`, o));
+            data.usb_a.forEach((o, i) => html += outputCard(`A${i+1}`, o));
 
             container.innerHTML = html;
         }
 
         function outputCard(name, output) {
-            const statusClass = output.is_on ? 'on' : 'off';
+            const isActive = output.watts > 0;
+            const dotClass = isActive
+                ? 'w-2 h-2 rounded-full bg-green-500 glow-dot'
+                : 'w-2 h-2 rounded-full bg-gray-600';
+
             return `
-                <div class="output">
-                    <div class="output-name">${name}</div>
-                    <div class="output-watts">
-                        <span class="output-status ${statusClass}"></span>
-                        ${output.watts}W
+                <div class="bg-dark-bg rounded-lg p-3 text-center">
+                    <div class="flex items-center justify-center gap-2 mb-1">
+                        <span class="${dotClass}"></span>
+                        <span class="text-gray-400 text-xs">${name}</span>
                     </div>
+                    <div class="text-lg font-bold ${isActive ? 'text-green-400' : 'text-gray-500'}">${output.watts}W</div>
                 </div>
             `;
         }
 
         async function sendCommand(endpoint, body) {
+            console.log('sendCommand called:', endpoint, body);
             const msgEl = document.getElementById('message');
             try {
                 const res = await fetch(`${API_BASE}${endpoint}`, {
@@ -316,38 +493,115 @@
                 });
                 const data = await res.json();
                 if (res.ok) {
-                    msgEl.innerHTML = '<span class="success">Command sent successfully</span>';
+                    console.log('Command succeeded:', endpoint, data);
+                    msgEl.innerHTML = '<span class="text-green-400">Command sent successfully</span>';
                 } else {
-                    msgEl.innerHTML = `<span class="error">Error: ${data.error}</span>`;
+                    console.log('Command failed:', endpoint, data);
+                    msgEl.innerHTML = `<span class="text-red-400">Error: ${data.error}</span>`;
                 }
             } catch (e) {
-                msgEl.innerHTML = `<span class="error">Failed to send command: ${e}</span>`;
+                msgEl.innerHTML = `<span class="text-red-400">Failed to send command: ${e}</span>`;
             }
             setTimeout(() => msgEl.innerHTML = '', 3000);
         }
 
-        function setAcOutput(isOn) { sendCommand('/ac-output', { is_on: isOn }); }
-        function set12VOutput(isOn) { sendCommand('/twelve-volt-output', { is_on: isOn }); }
-        function setPowerSave(isOn) { sendCommand('/power-save', { is_on: isOn }); }
+        // Toggle functions
+        function updateToggleUI(toggleId, labelId, state) {
+            const toggle = document.getElementById(toggleId);
+            const label = document.getElementById(labelId);
+            if (state) {
+                toggle.classList.add('active');
+                label.textContent = 'ON';
+            } else {
+                toggle.classList.remove('active');
+                label.textContent = 'OFF';
+            }
+        }
 
-        function setBrightness() {
-            const level = parseInt(document.getElementById('brightness').value);
+        function toggleAcOutput() {
+            toggleStates.ac = !toggleStates.ac;
+            updateToggleUI('ac-toggle', 'ac-toggle-label', toggleStates.ac);
+            sendCommand('/ac-output', { is_on: toggleStates.ac });
+        }
+
+        function toggle12VOutput() {
+            toggleStates.v12 = !toggleStates.v12;
+            updateToggleUI('12v-toggle', '12v-toggle-label', toggleStates.v12);
+            sendCommand('/twelve-volt-output', { is_on: toggleStates.v12 });
+        }
+
+        function togglePowerSave() {
+            toggleStates.powerSave = !toggleStates.powerSave;
+            updateToggleUI('powersave-toggle', 'powersave-toggle-label', toggleStates.powerSave);
+            sendCommand('/power-save', { is_on: toggleStates.powerSave });
+        }
+
+        // Legacy toggle functions for compatibility
+        function setAcOutput(isOn) {
+            toggleStates.ac = isOn;
+            updateToggleUI('ac-toggle', 'ac-toggle-label', isOn);
+            sendCommand('/ac-output', { is_on: isOn });
+        }
+        function set12VOutput(isOn) {
+            toggleStates.v12 = isOn;
+            updateToggleUI('12v-toggle', '12v-toggle-label', isOn);
+            sendCommand('/twelve-volt-output', { is_on: isOn });
+        }
+        function setPowerSave(isOn) {
+            toggleStates.powerSave = isOn;
+            updateToggleUI('powersave-toggle', 'powersave-toggle-label', isOn);
+            sendCommand('/power-save', { is_on: isOn });
+        }
+
+        // Brightness segmented control
+        function setBrightness(level) {
+            console.log('setBrightness called with:', level);
+            currentBrightness = level;
+            document.querySelectorAll('.brightness-btn').forEach(btn => {
+                if (parseInt(btn.dataset.brightness) === level) {
+                    btn.classList.remove('bg-gray-700');
+                    btn.classList.add('bg-teal', 'text-dark-bg');
+                } else {
+                    btn.classList.add('bg-gray-700');
+                    btn.classList.remove('bg-teal', 'text-dark-bg');
+                }
+            });
             sendCommand('/screen-brightness', { level });
         }
 
-        function setLed() {
-            const level = parseInt(document.getElementById('led').value);
+        // LED segmented control
+        function setLed(level) {
+            console.log('setLed called with:', level);
+            updateLedUI(level);
             sendCommand('/led', { level });
+        }
+
+        // Recharge power slider
+        function updateRechargeDisplay() {
+            const value = document.getElementById('recharge').value;
+            document.getElementById('recharge-display').textContent = value + 'W';
         }
 
         function setRechargePower() {
             const watts = parseInt(document.getElementById('recharge').value);
+            console.log('setRechargePower called with:', watts);
             sendCommand('/recharge-power', { watts });
         }
 
         function setScreenTimeout() {
             const seconds = parseInt(document.getElementById('screen-timeout').value);
             sendCommand('/screen-timeout', { seconds });
+        }
+
+        // Timer presets
+        function setAcTimerPreset(seconds) {
+            document.getElementById('ac-timer').value = seconds;
+            setAcTimer();
+        }
+
+        function set12VTimerPreset(seconds) {
+            document.getElementById('12v-timer').value = seconds;
+            set12VTimer();
         }
 
         function setAcTimer() {
@@ -360,11 +614,62 @@
             sendCommand('/twelve-volt-timer', { seconds });
         }
 
-        // Refresh data periodically
-        fetchStatus();
-        fetchTelemetry();
-        setInterval(fetchStatus, 5000);
-        setInterval(fetchTelemetry, 2000);
+        // Fetch device state (toggles, LED)
+        async function fetchDeviceState() {
+            try {
+                const res = await fetch(`${API_BASE}/device-state`);
+                if (!res.ok) return;
+                const data = await res.json();
+
+                // Update toggle states from device
+                toggleStates.ac = data.ac_outlet_on;
+                toggleStates.v12 = data.twelve_volt_on;
+                toggleStates.powerSave = data.power_save_on;
+
+                updateToggleUI('ac-toggle', 'ac-toggle-label', toggleStates.ac);
+                updateToggleUI('12v-toggle', '12v-toggle-label', toggleStates.v12);
+                updateToggleUI('powersave-toggle', 'powersave-toggle-label', toggleStates.powerSave);
+
+                // Update LED state from device
+                const ledLevel = data.led_level ?? 0;
+                updateLedUI(ledLevel);
+            } catch (e) {
+                console.error('Failed to fetch device state:', e);
+            }
+        }
+
+        // Update LED UI without sending command
+        function updateLedUI(level) {
+            currentLed = level;
+            const sosBtn = document.getElementById('sos-btn');
+
+            document.querySelectorAll('.led-btn').forEach(btn => {
+                const btnLevel = parseInt(btn.dataset.led);
+                btn.classList.remove('bg-teal', 'text-dark-bg', 'bg-red-500', 'sos-active');
+                btn.classList.add('bg-gray-700');
+
+                if (btnLevel === level) {
+                    if (btnLevel === 4) {
+                        btn.classList.remove('bg-gray-700');
+                        btn.classList.add('bg-red-500', 'sos-active');
+                    } else {
+                        btn.classList.remove('bg-gray-700');
+                        btn.classList.add('bg-teal', 'text-dark-bg');
+                    }
+                }
+            });
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            initCharts();
+            fetchStatus();
+            fetchTelemetry();
+            fetchDeviceState();
+            setInterval(fetchStatus, 5000);
+            setInterval(fetchTelemetry, 2000);
+            setInterval(fetchDeviceState, 5000);
+        });
     </script>
 </body>
 </html>

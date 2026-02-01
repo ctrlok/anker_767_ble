@@ -2,7 +2,7 @@
 //! Maintains always-connected state with auto-reconnect.
 
 use crate::ble::command::AnkerCommand;
-use crate::ble::telemetry::{NotificationPacket, Telemetry, TelemetryError};
+use crate::ble::telemetry::{NotificationPacket, StateAck, Telemetry, TelemetryError};
 use btleplug::api::{
     Central, Characteristic, Manager as _, Peripheral as _, ScanFilter, WriteType,
 };
@@ -47,10 +47,26 @@ pub enum ConnectionState {
     Connected,
 }
 
+/// Tracks the last values we've set via commands
+#[derive(Debug, Clone, Default, serde::Serialize, utoipa::ToSchema)]
+pub struct SetState {
+    pub ac_output: Option<bool>,
+    pub twelve_volt_output: Option<bool>,
+    pub power_save: Option<bool>,
+    pub led_level: Option<u8>,
+    pub screen_brightness: Option<u8>,
+    pub recharge_power: Option<u16>,
+    pub screen_timeout: Option<u16>,
+    pub ac_timer: Option<u16>,
+    pub twelve_volt_timer: Option<u16>,
+}
+
 /// Shared state for the BLE device
 pub struct DeviceState {
     pub connection_state: ConnectionState,
     pub last_telemetry: Option<Telemetry>,
+    pub last_state_ack: Option<StateAck>,
+    pub set_state: SetState,
 }
 
 impl Default for DeviceState {
@@ -58,6 +74,8 @@ impl Default for DeviceState {
         Self {
             connection_state: ConnectionState::Disconnected,
             last_telemetry: None,
+            last_state_ack: None,
+            set_state: SetState::default(),
         }
     }
 }
@@ -103,6 +121,11 @@ impl AnkerDevice {
         let mut state = self.state.write().await;
         state.last_telemetry = Some(telemetry.clone());
         let _ = self.telemetry_tx.send(telemetry);
+    }
+
+    async fn update_state_ack(&self, state_ack: StateAck) {
+        let mut state = self.state.write().await;
+        state.last_state_ack = Some(state_ack);
     }
 
     /// Start the connection loop - runs forever, auto-reconnecting
@@ -177,6 +200,7 @@ impl AnkerDevice {
                 }
                 Ok(NotificationPacket::StateAck(state_ack)) => {
                     debug!("State ack: {:?}", state_ack);
+                    self.update_state_ack(state_ack).await;
                 }
                 Ok(NotificationPacket::CommandAck(cmd_ack)) => {
                     debug!("Command ack: {:?}", cmd_ack.command_type);
