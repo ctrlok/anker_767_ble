@@ -8,17 +8,32 @@ Monitor battery status, toggle outlets, adjust settings — all from your browse
 
 ![Screenshot](static/web_server.png)
 
-## Quick Start
+## Installation
+
+### Pre-built binaries
+
+Download the latest release for your platform from [GitHub Releases](https://github.com/ctrlok/anker_767_ble/releases).
+
+### From source
 
 ```bash
-# Run with Docker
+cargo install --git https://github.com/ctrlok/anker_767_ble.git anker_767_ble_webserver
+
+# Run
+RUST_LOG=info anker_767_ble_webserver
+```
+
+### Docker (Linux only)
+
+```bash
 docker run -d --name anker767 \
   --privileged \
+  -v /var/run/dbus:/var/run/dbus \
   -p 3000:3000 \
-  ctrlok/anker767-webserver:latest
-
-# Or build locally (see Building section)
+  ghcr.io/ctrlok/anker_767_ble:latest
 ```
+
+> **Note:** Docker with Bluetooth only works on Linux. The `/var/run/dbus` mount is required for BlueZ to communicate with the host's Bluetooth stack.
 
 Server runs on `http://localhost:3000`
 
@@ -132,18 +147,21 @@ cargo build --release
 RUST_LOG=info cargo run --release
 ```
 
-## Docker
+## Docker (Linux only)
 
-The Docker image is based on Debian Bookworm slim. It needs `--privileged` or proper BLE permissions to access Bluetooth.
+The Docker image is based on Debian Bookworm slim and only works on Linux hosts. It needs `--privileged` and access to D-Bus for Bluetooth communication.
 
 ```bash
 docker run -d \
   --name anker767 \
   --privileged \
   --restart unless-stopped \
+  -v /var/run/dbus:/var/run/dbus \
   -p 3000:3000 \
-  ctrlok/anker767-webserver:latest
+  ghcr.io/ctrlok/anker_767_ble:latest
 ```
+
+> **Why `/var/run/dbus`?** BlueZ (Linux Bluetooth stack) uses D-Bus to communicate with the system Bluetooth daemon. Without this mount, the container cannot access Bluetooth hardware.
 
 ## How It Works
 
@@ -152,6 +170,20 @@ docker run -d \
 3. Parses telemetry data from device notifications
 4. Exposes REST API for control and monitoring
 5. Auto-reconnects if connection drops
+
+## FAQ
+
+**How do I connect the server to my device?**
+
+Press the Bluetooth button on the Anker PowerHouse 767. The server will scan and connect automatically. Usually it just works.
+
+**What platform should I use?**
+
+I recommend running this on a Linux server — it handles persistent BLE connections for days without issues.
+
+**Does it work on macOS?**
+
+The Docker image is not tested on macOS and probably won't work since Docker runs inside a VM on macOS (no direct Bluetooth access). However, running with `cargo run` works fine on macOS.
 
 ## Known Limitations
 
